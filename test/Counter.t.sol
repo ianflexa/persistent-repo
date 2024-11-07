@@ -5,20 +5,30 @@ import {Test, console} from "forge-std/Test.sol";
 import {Counter} from "../src/Counter.sol";
 
 contract CounterTest is Test {
-    Counter public counter;
+    // Counter public counter;
+    uint256 constant initBlock = 47840214;
 
     function setUp() public {
-        counter = new Counter();
-        counter.setNumber(0);
+        vm.createSelectFork(vm.rpcUrl("zksync"), initBlock);
+    }
+    // this one works
+    function testZkEnsureContractMigratedWhenForkedIfPersistent() external {
+        uint256 current = initBlock - 10;
+        Counter counter = create_counter_in_past(current);
+        vm.makePersistent(address(counter));
+        uint256 i = 1;
+        while (current <= initBlock) {
+            vm.createSelectFork(vm.rpcUrl("zksync"), current);
+            counter.inc();
+            assertEq(i, counter.get());
+            assertGe(counter.latestAnswer(), 0);
+            i += 1;
+            current += 1;
+        }
     }
 
-    function test_Increment() public {
-        counter.increment();
-        assertEq(counter.number(), 1);
-    }
-
-    function testFuzz_SetNumber(uint256 x) public {
-        counter.setNumber(x);
-        assertEq(counter.number(), x);
+    function create_counter_in_past(uint256 block_) internal returns (Counter) {
+        vm.createSelectFork(vm.rpcUrl("zksync"), block_);
+        return new Counter();
     }
 }
